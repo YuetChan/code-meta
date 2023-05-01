@@ -2,26 +2,7 @@ import os
 import subprocess
 import distro
 
-# subprocess.run(["rm", "./code_meta.desktop"])
-
 subprocess.run([f"{os.path.dirname(os.path.abspath(__file__))}/deps_install.sh"])
-
-# subprocess.run(['python3', '-m', 'venv', 'myenv'])
-# subprocess.run(['source', 'myenv/bin/activate'], shell=True)
-
-# subprocess.run(['pip', 'install', '-r', 'requirements.txt'])
-
-# subprocess.run(['python3', 'db_schema_bootstrap.py'])
-# subprocess.run(['pyinstaller', 'main.py'])
-
-# # Deactivate virtual environment
-# os.environ.pop("VIRTUAL_ENV", None)
-# # Clean up
-# subprocess.run(["rm", "-r", "myenv"])
-
-# # Edit code_meta.desktop
-# subprocess.run(["cp", "code_meta_template.desktop", "code_meta.desktop"])
-# subprocess.run(["cp", "-r", "resources", "./dist/main/resources"])
 
 
 def replace_string_in_file(fpath, old_str, new_str):
