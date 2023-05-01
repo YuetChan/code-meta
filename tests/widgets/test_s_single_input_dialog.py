@@ -17,8 +17,10 @@ class test_s_single_input_dialog(unittest.TestCase):
 
         self.dialog = s_single_input_dialog({
             'dialog_title': 'New Project',
-            'dialog_var': 'project_name',
-            'dialog_msg': 'Enter a project'
+            'dialog_var_1': 'project_name',
+            'dialog_var_2': 'user',
+            'dialog_msg_1': 'Enter a project name',
+            'dialog_msg_2': 'Enter an username',
         })
 
 

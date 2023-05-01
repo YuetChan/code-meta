@@ -4,7 +4,7 @@ import distro
 
 # subprocess.run(["rm", "./code_meta.desktop"])
 
-subprocess.run([f'{os.path.dirname(os.path.abspath(__file__))}/deps_install.sh'])
+subprocess.run([f"{os.path.dirname(os.path.abspath(__file__))}/deps_install.sh"])
 
 # subprocess.run(['python3', '-m', 'venv', 'myenv'])
 # subprocess.run(['source', 'myenv/bin/activate'], shell=True)

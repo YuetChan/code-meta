@@ -39,8 +39,10 @@ class s_file_tree(QTreeView):
             ):
         super().setModel(model)
         
-        self.selected_item = self.model().invisibleRootItem()
-        self._highlight_model(self.model().invisibleRootItem())
+        self.selected_item = self.model().invisibleRootItem().child(0, 0)
+
+        self._unhighlight_model(self.model().invisibleRootItem().child(0, 0))
+        self._highlight_model(self.model().invisibleRootItem().child(0, 0))
 
 
     def click_root_file(self):
@@ -76,17 +78,36 @@ class s_file_tree(QTreeView):
             self, 
             item
             ):
+        fpath = item.data(Qt.UserRole)[0]
+
+        if fpath in self.hl_fpaths:
+            self._highlight_item(item)
+        
+        
         if item.hasChildren():
             for row in range(item.rowCount()):
                 child = item.child(row)
                 self._highlight_model(child)
 
+    
+    def _unhighlight_model(
+            self, 
+            item
+            ):
+        fpath = item.data(Qt.UserRole)[0]
 
-        else:
-            fpath = item.data(Qt.UserRole)[0]
+        self._unhighlight_item(item)
+            
+        if item.hasChildren():
+            for row in range(item.rowCount()):
+                child = item.child(row)
+                self._unhighlight_model(child)
 
-            if fpath in self.hl_fpaths:
-                self._highlight_item(item)
+
+    def set_highlight_file_paths(self, hl_fpaths):
+        self.hl_fpaths = hl_fpaths
+
+        self.setModel(self.model())
 
 
     def _on_file_clicked(

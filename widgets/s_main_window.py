@@ -1,5 +1,4 @@
 import os
-import uuid
 import json
 
 from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog, QMenu, QSplitter, QLabel, QMessageBox, QDialog
@@ -12,6 +11,7 @@ from core_helper import core_helper
 from core_manager import core_manager
 from fs_helper import fs_helper
 
+from widgets.s_tab import s_tab
 from widgets.s_single_input_dialog import s_single_input_dialog
 from widgets.s_search_bar import s_file_search_bar
 from widgets.s_rich_text_editor.s_rich_text_editor import s_rich_text_editor
@@ -30,7 +30,7 @@ class s_main_window(QMainWindow):
         
         self._init_dialogs_ui()
         self._init_actions_ui()
-        
+
         self.hl_fpath = []
         self.dangling_fpath = []
 
@@ -40,84 +40,182 @@ class s_main_window(QMainWindow):
         self.central_splitter = None
 
         self.file_tree = None
-        self.text_editor = None
-
+        self.text_editors_map = {}
+        
+        self.tab = None
 
         self.c_helper = None
 
-        self.c_config = { }
-        self.c_manager = None
+        self.c_config = { 
+            'user': [],
+            'ds_fpath_map': { }
+        }
 
-        self.default_config_fname = 's_config.json'
+        self.c_manager = None
 
 
     def new_project(self):
-        self.c_config['root_dir'] = QFileDialog().getExistingDirectory(            
+        root_dir = QFileDialog().getExistingDirectory(            
             None,
-            'Select a folder:',
+            'Select a project folder:',
             '',
             QFileDialog.ShowDirsOnly | QFileDialog.DontUseNativeDialog
             )
 
-        if self.c_config['root_dir'] == '':
+        if root_dir == '':
             return
         
 
-        if os.path.exists(os.path.join(self.c_config['root_dir'], self.default_config_fname)):
-            self._show_config_file_existed_msg()
+        del self.c_config['ds_fpath_map']
+        self.c_config['ds_fpath_map'] = { }
+
+        self.c_config['root_dir'] = root_dir        
+
+        if self._prompt_project_config():
+            try:
+                self._dump_datasource_file(
+                    self.c_config['project_name'], 
+                    self.c_config['active_user'],
+                    self.c_config['active_ds_fpath']
+                    )    
+
+            except Exception as e:
+                self._show_config_file_create_failed_msg()
+                print("Error occurred while writing data to file:", e)
                 
-        elif self._prompt_project_config():
-            c_reader = config_reader(os.path.join(self.c_config['root_dir'], self.default_config_fname))
+                return 
+
+
+            c_reader = config_reader(self.c_config['active_ds_fpath'])
+
             self.c_helper = core_helper(c_reader)
 
-             # Clean up previous widgets before init new widgets
+            self.text_editors_map[self.c_config['active_user']] = s_rich_text_editor()
+
+            # Clean up previous widgets before init new widgets
             self._clean_up()
+
             self._init_core_ui()
+            self._init_core_manager()
+
+            self._get_action_by_label('Add Note').setEnabled(True)
 
         else:
             self._show_config_file_create_failed_msg()
                 
 
     def open_project(self):
-        fpath = QFileDialog().getOpenFileName(
+        root_dir = QFileDialog().getExistingDirectory(            
+            None,
+            'Select a project folder:',
+            '',
+            QFileDialog.ShowDirsOnly | QFileDialog.DontUseNativeDialog
+            )
+
+        if root_dir == '':
+            return
+    
+
+        del self.c_config['ds_fpath_map']
+        self.c_config['ds_fpath_map'] = { }
+
+        self.c_config['root_dir'] = root_dir
+
+        self.c_config['active_ds_fpath'] = QFileDialog().getOpenFileName(
             None, 
-            "Open s_config.json", 
+            "Open a datasource JSON file", 
             "", 
             "JSON Files (*.json);;All Files (*)", 
             options= QFileDialog.Options() | QFileDialog.DontUseNativeDialog
             )[0]
         
-        if fpath == '':
+        if self.c_config['active_ds_fpath'] == '':
             return
             
 
-        if  os.path.basename(fpath) == self.default_config_fname:
-            c_reader = config_reader(fpath)
+        c_reader = config_reader(self.c_config['active_ds_fpath'])
+
+        if c_reader.is_valid:
+            self.c_helper = core_helper(c_reader)
+
+            self.c_config['project_name'] = c_reader.get_project_name()
+
+            self.c_config['active_user'] = c_reader.get_user()
+            self.c_config['ds_fpath_map'][self.c_config['active_user']] = self.c_config['active_ds_fpath']
+            
+            self.text_editors_map[self.c_config['active_user']] = s_rich_text_editor()
+
+            # Clean up previous widgets before init new widgets    
+            self._clean_up()
+
+            self._init_core_ui()
+            self._init_core_manager()
+
+            self._get_action_by_label('Add Note').setEnabled(True)
+
+        else:
+            self._show_config_file_not_valid_msg()
+
+
+    def add_datasource_file(self):
+        ds_fpath, _ = QFileDialog.getOpenFileName(
+            None,
+            "Select a datasource JSON file",
+            "",
+            "JSON Files (*.json)",
+            options=QFileDialog.Options() | QFileDialog.ReadOnly | QFileDialog.DontUseNativeDialog
+            )
+
+        if ds_fpath == '':
+            return
+
+
+        if(self.tab.count() > 0):
+            self.tab.setTabsClosable(True)
+
+
+        c_reader = config_reader(ds_fpath)
+
+        if c_reader.is_valid:
+            if self.c_config['project_name'] != c_reader.get_project_name():
+                self._show_missmtach_project_msg()
+
+                return
+            
+
+            if c_reader.get_user() in self.c_config['ds_fpath_map']:
+                self.text_editors_map[c_reader.get_user()].deleteLater()
+
 
             self.c_helper = core_helper(c_reader)
 
-            if c_reader.is_valid:
-                self.c_config['project_id'] = c_reader.get_project_id()
-                self.c_config['project_name'] = c_reader.get_project_name()
+            self.c_config['active_ds_fpath'] = ds_fpath
 
-                self.c_config['root_dir'] = os.path.dirname(fpath)
-                
-                self._clean_up()
-                self._init_core_ui()
+            self.c_config['active_user'] = c_reader.get_user()
+            self.c_config['ds_fpath_map'][self.c_config['active_user']] = self.c_config['active_ds_fpath']
 
-            else:
-                self._show_config_file_not_valid_msg()
-  
+            self.text_editors_map[self.c_config['active_user']] = s_rich_text_editor()
+
+            self._update_tab()
+
+            self._update_file_tree()
+            self._update_file_searcher()
+            
+            self._update_core_manager()
 
         else:
-            self._show_config_file_missing_msg()
+            self._show_config_file_not_valid_msg()
 
 
     def _init_dialogs_ui(self):
         self.dialog = s_single_input_dialog({
             'dialog_title': 'New Project',
-            'dialog_var': 'project_name',
-            'dialog_msg': 'Enter a project'
+            'dialog_var_1': 'project_name',
+            'dialog_var_2': 'user',
+            'dialog_var_3': 'dirpath',
+            'dialog_msg_1': 'Enter a project name',
+            'dialog_msg_2': 'Enter an username',
+            'dialog_msg_3': 'Choose a datasource directory',
         })
 
 
@@ -128,6 +226,7 @@ class s_main_window(QMainWindow):
 
         self._init_new_project_action()
         self._init_open_project_action()
+        self._init_add_datasource_file_action()
 
         self._init_auto_save_action()
 
@@ -158,9 +257,21 @@ class s_main_window(QMainWindow):
         self.file_menu.addAction(action)
 
 
+    def _init_add_datasource_file_action(self):
+        action = QAction(
+            'Add Note', 
+            self
+            )
+
+        action.triggered.connect(self.add_datasource_file)
+        self.file_menu.addAction(action)
+
+        action.setEnabled(False)
+
+
     def _init_auto_save_action(self):
         action = QAction(
-            QIcon(os.environ['code_meta_dir'] + '/resources/check-solid.svg'), 
+            QIcon(f"{os.environ['code_meta_dir']}/resources/check-solid.svg"), 
             'Auto Save', 
             self
             )
@@ -171,22 +282,15 @@ class s_main_window(QMainWindow):
 
     def _prompt_project_config(self):
         if self.dialog.exec_() == QDialog.Accepted:
-            self.c_config['project_id'] = str(uuid.uuid4())
-            self.c_config['project_name'] = self.dialog.get_config()['project_name']         
+            self.c_config['project_name'] = self.dialog.get_config()['project_name']
+            self.c_config['active_user'] = self.dialog.get_config()['user']
 
-            try:
-                self.init_config(
-                    self.c_config['project_id'], 
-                    self.c_config['project_name'], 
-                    os.path.join(self.c_config['root_dir'], self.default_config_fname)
-                    )    
+            # Generate datasource filename
+            self.c_config['active_ds_fpath'] = f"{self.dialog.get_config()['dirpath']}/{self.c_config['project_name']}_{self.c_config['active_user']}_datasource.json"     
 
-                return True
+            self.c_config['ds_fpath_map'][self.c_config['active_user']] = self.c_config['active_ds_fpath']
 
-            except Exception as e:
-                print("Error occurred while writing data to file:", e)
-                return False
-
+            return True
 
         else:
             print("Project input dialog rejected")
@@ -199,11 +303,12 @@ class s_main_window(QMainWindow):
 
         self._init_central_widget()
 
+
+    def _init_core_manager(self):
         self.c_manager = core_manager(
-            self.c_config['project_id'], 
             self.file_tree, 
             self.file_searcher,
-            self.text_editor,
+            self._get_active_text_editor(),
             self.c_helper
             )
 
@@ -246,10 +351,28 @@ class s_main_window(QMainWindow):
         self.search_title = QLabel('Dangling Notes')
 
         self.search_bar = s_file_search_bar()
-
         self.file_list = s_file_list(model)
 
         self.file_searcher = s_file_searcher(self.search_title, self.search_bar, self.file_list)
+
+
+    def _init_tab(self):
+        self.tab = s_tab()
+
+        self.tab.setTabsClosable(True)
+
+        self.tab.addTab(
+            self.text_editors_map[self.c_config['active_user']], 
+            f"{self.c_config['active_user']}"
+            )
+    
+        self.tab.connect_tab_changed(
+            lambda idx: self._on_tab_changed(idx)
+            )
+        
+        self.tab.connect_tab_closed(
+            lambda idx: self._on_tab_closed(idx)
+        )
 
 
     def _init_left_panel(self):
@@ -266,8 +389,80 @@ class s_main_window(QMainWindow):
     
 
     def _init_right_panel(self):
-        self.text_editor = s_rich_text_editor()
-        self.right_panel = self.text_editor
+        self._init_tab()
+
+        self.right_panel = self.tab
+    
+
+    def _get_active_text_editor(self):
+        return self.text_editors_map[self.c_config['active_user']]
+
+
+    def _on_tab_changed(
+            self, 
+            idx
+            ):
+        # When there is zero tab
+        if idx == -1:
+            return
+
+
+        sender = self.tab.sender()
+
+        self.c_config['active_user'] = sender.tabText(idx)
+        self.c_config['active_ds_fpath'] = self.c_config['ds_fpath_map'][self.c_config['active_user']]
+
+        c_reader = config_reader(self.c_config['active_ds_fpath'])
+        
+        self.c_helper = core_helper(c_reader)
+
+        self._update_file_tree()
+        self._update_file_searcher()
+            
+        self._update_core_manager()
+
+
+    def _on_tab_closed(
+            self,
+            idx
+            ):
+        sender = self.tab.sender()
+
+        active_idx = idx
+
+        # First tab
+        if idx == 0:
+            active_idx = idx + 1
+
+        else:
+            active_idx = idx - 1
+
+
+        self.text_editors_map[sender.tabText(idx)].deleteLater()
+        del self.text_editors_map[sender.tabText(idx)]
+
+        del self.c_config['ds_fpath_map'][sender.tabText(idx)]
+
+        if self.tab.count() == 1:
+            self._clean_up()
+            self._clear_project()
+
+            return
+
+
+        self.c_config['active_user'] = sender.tabText(active_idx)
+        self.c_config['active_ds_fpath'] = self.c_config['ds_fpath_map'][self.c_config['active_user']]
+
+        c_reader = config_reader(self.c_config['active_ds_fpath'])
+        
+        self.c_helper = core_helper(c_reader)   
+
+        self.tab.setCurrentIndex(active_idx)
+
+        self._update_file_tree()
+        self._update_file_searcher()
+            
+        self._update_core_manager()
 
 
     def _init_central_widget(self):
@@ -278,6 +473,60 @@ class s_main_window(QMainWindow):
 
         self.setCentralWidget(self.central_splitter)
         
+
+    def _update_core_manager(self):
+        self.c_manager.update(
+            self.file_tree, 
+            self.file_searcher, 
+            self._get_active_text_editor(), 
+            self.c_helper
+            )
+
+
+    def _update_core_ui(self):
+        self._update_tab()
+
+        self._update_file_tree()
+        self._update_file_searcher()
+
+
+    def _update_tab(self):
+        self.tab.upsert_widget_by_label(
+            self.text_editors_map[self.c_config['active_user']], 
+            self.c_config['active_user']
+            )
+
+
+    def _update_file_tree(self):
+        all_fpaths = fs_helper.relativize_file_paths(
+            fs_helper.get_all_filepaths(self.c_config['root_dir'])
+            )
+
+        hl_fpaths = self.c_helper.select_filepaths_with_non_empty_plain_text_note_by_filepaths_in(all_fpaths)
+
+        self.file_tree.set_highlight_file_paths(
+            fs_helper.relativize_file_paths(hl_fpaths)
+            )
+
+
+    def _update_file_searcher(self):
+        all_fpaths = fs_helper.relativize_file_paths(
+            fs_helper.get_all_filepaths(self.c_config['root_dir'])
+            )
+
+        fpaths = self.c_helper.select_filepaths_with_non_empty_plain_text_note_by_filepaths_not_in(all_fpaths)
+
+        model = QStandardItemModel()
+
+        for fpath in fpaths:
+            item = QStandardItem(fpath)
+
+            model.appendRow(item)
+
+
+        self.file_list.update_model(model)
+        self.file_searcher.update_file_list(self.file_list)  
+
 
     def _show_config_file_existed_msg(self):
         QMessageBox.critical(
@@ -309,7 +558,21 @@ class s_main_window(QMainWindow):
             'Error', 
             'The selected directory does not contain a valid configuration.'
             )
-        
+
+    def _show_missmtach_project_msg(self):
+        QMessageBox.critical(
+            None, 
+            'Error', 
+            'The selected project doesnt match existing project.'
+            )
+
+    def _clear_project(self):
+        del self.c_config['project_name']
+        del self.c_config['active_user']
+        del self.c_config['active_ds_fpath']
+
+        self._get_action_by_label('Add Note').setEnabled(False)
+
 
     def _clean_up(self):
         if self.central_splitter != None:
@@ -319,7 +582,16 @@ class s_main_window(QMainWindow):
             # and this removes reference manually
             self.central_splitter = None
 
-            
+
+    def _get_action_by_label(self, label):
+        for action in self.file_menu.actions():
+            if action.text() == label:
+                return action
+
+
+        return None
+
+
     def _populate_file_tree_model(
             self, 
             root_dir,
@@ -335,7 +607,7 @@ class s_main_window(QMainWindow):
         model.setHorizontalHeaderLabels([label])
         model.appendRow(root_item)
 
-        self._add_files(root_item, root_dir )
+        self._add_files(root_item, root_dir)
 
         return model
 
@@ -344,7 +616,6 @@ class s_main_window(QMainWindow):
             self, 
             parent, 
             path,
-            
             ):
         for fname in os.listdir(path):
             fpath = os.path.join(path, fname)
@@ -365,15 +636,16 @@ class s_main_window(QMainWindow):
                 self._add_files(item, fpath)
 
 
-    def init_config(
+    def _dump_datasource_file(
             self,
-            id, 
             name, 
+            user,
             fpath):
+        print(fpath)
         json_data = {
-          "id": id,
           "name": name,
-          "file_paths": {}
+          "user": user,
+          "file_paths": { }
         }
 
         with open(fpath, 'w') as outfile:

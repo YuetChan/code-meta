@@ -69,7 +69,9 @@ class s_rich_text_editor(QWidget):
             self, 
             l_func
             ):
-        self._on_text_changed(l_func)
+        self.rich_text_area.text_changed.connect(
+            lambda data : self._on_text_changed(l_func, data) 
+            )   
 
     
     def set_read_only(self):
@@ -103,9 +105,8 @@ class s_rich_text_editor(QWidget):
 
     def _on_text_changed(
             self, 
-            l_func
+            l_func,
+            data
             ):
-        self.rich_text_area.text_changed.connect(
-            lambda data : l_func(data)
-            )
+        l_func(data)
 

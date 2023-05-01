@@ -23,12 +23,23 @@ class s_file_list(QListView):
         self.clicked.connect(self._on_file_clicked)
 
 
+    def update_model(
+            self, 
+            model
+            ):
+        self.src_model = model
+        self.setModel(model)
+
+
     def click_first_file(self):
         root_idx = self.model().index(0, 0, QModelIndex())
         self.click_file_by_index(root_idx)
 
 
-    def click_file_by_index(self, idx):
+    def click_file_by_index(
+            self, 
+            idx
+            ):
         self.clicked.emit(idx)
         self.setCurrentIndex(idx)
 
@@ -37,6 +48,7 @@ class s_file_list(QListView):
             self, 
             idx
             ):
+        print(self.model().data(idx))
         self.selected_fpath = self.model().data(idx)
 
         self.file_clicked.emit({

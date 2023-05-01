@@ -9,8 +9,6 @@ python3 -m venv myenv
 
 pip install -r requirements.txt
 
-python3 db_schema_bootstrap.py
-
 pyinstaller main.py
 
 deactivate

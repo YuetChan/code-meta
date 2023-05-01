@@ -1,4 +1,5 @@
 import json
+import jsonschema
 
 class config_reader:
 
@@ -10,26 +11,39 @@ class config_reader:
 
         with open(self.fpath, 'r') as f:
             try:
-                json_obj = json.load(f)
-
-                if isinstance(json_obj, dict):
-                    self.data = json_obj
-                    self.is_valid = self.data['id'] != None and self.data['name'] != None
-
-                else:
-                    self.is_valid = False
-
+                self.data = json.load(f)
+                self.is_valid = self.validate_schema()
 
             except json.JSONDecodeError:
                 self.is_valid = False
 
 
-    def get_project_id(self):
-        return self.data['id']
+    def validate_schema(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "user": {"type": "string"},
+                "file_paths":  {"type": "object"},
+            },
+            "required": ["name", "user", "file_paths"]
+        }
+
+        try:
+            jsonschema.validate(self.data, schema)
+            return True
+
+        except jsonschema.ValidationError as e:
+            print("JSON data is invalid:", e)
+            return False
 
 
     def get_project_name(self):
         return self.data['name']
+
+
+    def get_user(self):
+        return self.data['user']
 
 
     def get_note(self, fpath):

@@ -35,7 +35,7 @@ class s_find_dialog(QDialog):
         search_text = self.search_field.text()
 
         self.match_counts_label.setText(
-            f'Match count: {self.text_area.get_match_count(search_text)}'
+            f"Match count: {self.text_area.get_match_count(search_text)}"
             )
         match = self.text_area.find_next_match(self.init_pos, search_text)
 
