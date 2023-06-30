@@ -33,10 +33,6 @@ The following dependencies are required to run the Project Name application:
 - Auto deletion: When users empty dangling notes, it will remove the associated file from the file list.
 - Add notes from a datasource file: Users can add other people's notes by choosing a datasource file.
 
-### Video on usage
-
-[![](https://i.ibb.co/BV9nDvF/643a1c3f79c3c-fbutube-code-meta-thumbnail.png)](https://www.youtube.com/watch?v=dZb2pFhr-NA)
-
 
 ## License
 
