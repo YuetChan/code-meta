@@ -6,9 +6,7 @@
 [![License](https://img.shields.io/badge/License-GPL-yellow.svg)](https://github.com/YuetChan/code-meta/blob/main/LICENSE)
 
 This is a note-taking app that allows developers to easily manage, edit and share notes associated with files in a project.
-
-![CodeMetaScreenshot](https://i.ibb.co/cJ0RBQ3/Screenshot-from-2023-04-13-00-32-03.png)
-
+![CodeMetaScreenshot](https://i.ibb.co/59ywKSy/Screenshot-from-2023-06-29-23-53-00.png)
 ## Dependencies
 
 The following dependencies are required to run the Project Name application:
